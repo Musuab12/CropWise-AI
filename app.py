@@ -3,7 +3,7 @@ import pandas as pd
 import joblib
 
 # Load trained model
-model = joblib.load("models/cropwise_rf_model.pkl")
+model = joblib.load("cropwise_rf_model.pkl")
 
 # Page configuration
 st.set_page_config(
