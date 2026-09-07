@@ -7,46 +7,111 @@ from urllib.request import urlopen, Request
 from urllib.parse import urlencode
 from datetime import date
 
-# -----------------------------
-# Model
-# -----------------------------
-model = joblib.load("cropwise_rf_model.pkl")
+# ============================================================
+# CropWise AI — Pakistan Edition
+# ============================================================
+
+MODEL_FILE = "cropwise_rf_model.pkl"
+model = joblib.load(MODEL_FILE)
 
 st.set_page_config(
     page_title="CropWise AI | Pakistan",
     page_icon="🌾",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 # -----------------------------
-# Styling
+# Premium UI styling
 # -----------------------------
 st.markdown("""
 <style>
-    .main { background-color: #f7faf8; }
-    .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
-    .hero {
-        padding: 1.4rem 1.6rem;
-        border-radius: 18px;
-        background: linear-gradient(135deg, #0f5132, #198754);
-        color: white;
-        margin-bottom: 1rem;
+    .stApp {
+        background: linear-gradient(180deg, #f5faf7 0%, #ffffff 42%, #f7faf8 100%);
     }
-    .hero h1 { margin: 0; font-size: 2.4rem; }
-    .hero p { margin: .35rem 0 0; font-size: 1.05rem; }
-    .small-note { color: #5f6b66; font-size: .88rem; }
+    .block-container {
+        max-width: 1250px;
+        padding-top: 1.2rem;
+        padding-bottom: 2.5rem;
+    }
+    .hero {
+        padding: 2rem 2.2rem;
+        border-radius: 24px;
+        background: linear-gradient(135deg, #0b3d2e 0%, #126b4b 55%, #1b8a5a 100%);
+        color: white;
+        box-shadow: 0 12px 30px rgba(20, 90, 65, .16);
+        margin-bottom: 1.1rem;
+    }
+    .hero h1 {
+        margin: 0;
+        font-size: 2.7rem;
+        letter-spacing: -.5px;
+    }
+    .hero p {
+        margin: .45rem 0 0;
+        font-size: 1.08rem;
+        opacity: .94;
+    }
+    .badge {
+        display: inline-block;
+        padding: .28rem .7rem;
+        border-radius: 999px;
+        background: rgba(255,255,255,.16);
+        font-size: .82rem;
+        margin-bottom: .75rem;
+    }
+    .section-note {
+        color: #5f6d67;
+        font-size: .9rem;
+    }
+    .result-card {
+        padding: 1.35rem;
+        border-radius: 20px;
+        background: white;
+        border: 1px solid #e4ece8;
+        box-shadow: 0 8px 24px rgba(20, 70, 50, .07);
+        text-align: center;
+    }
+    .result-card h3 { margin: 0; }
+    .result-card .score {
+        font-size: 1.65rem;
+        font-weight: 700;
+        margin: .35rem 0;
+    }
+    .info-card {
+        padding: 1rem 1.15rem;
+        border-radius: 16px;
+        background: white;
+        border: 1px solid #e7eeeb;
+        min-height: 92px;
+    }
+    .info-card .label {
+        color: #64736d;
+        font-size: .82rem;
+    }
+    .info-card .value {
+        font-size: 1.35rem;
+        font-weight: 700;
+        margin-top: .18rem;
+    }
     div[data-testid="stMetric"] {
         background: white;
-        border-radius: 14px;
+        border: 1px solid #e4ece8;
+        border-radius: 15px;
         padding: 10px;
-        border: 1px solid #e6ece8;
+        box-shadow: 0 4px 14px rgba(20, 70, 50, .04);
+    }
+    .footer {
+        text-align: center;
+        color: #718079;
+        font-size: .82rem;
+        padding-top: 1rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Pakistan location
+# Pakistan locations
 # -----------------------------
 PAKISTAN = {
     "Umarkot, Sindh": (25.3633, 69.7360),
@@ -80,26 +145,14 @@ PAKISTAN = {
 
 @st.cache_data(ttl=3600)
 def geocode_pakistan(place):
-    params = {
-        "name": place,
-        "count": 5,
-        "language": "en",
-        "format": "json"
-    }
+    params = {"name": place, "count": 5, "language": "en", "format": "json"}
     url = "https://geocoding-api.open-meteo.com/v1/search?" + urlencode(params)
     req = Request(url, headers={"User-Agent": "CropWise-AI/2.0"})
     with urlopen(req, timeout=10) as response:
         data = json.loads(response.read().decode("utf-8"))
-
-    results = data.get("results", [])
-    for r in results:
+    for r in data.get("results", []):
         if r.get("country_code") == "PK":
-            return {
-                "name": r.get("name", place),
-                "admin1": r.get("admin1", ""),
-                "latitude": r["latitude"],
-                "longitude": r["longitude"],
-            }
+            return r.get("name", place), r.get("admin1", ""), r["latitude"], r["longitude"]
     return None
 
 @st.cache_data(ttl=1800)
@@ -110,7 +163,7 @@ def get_weather(lat, lon):
         "current": "temperature_2m,relative_humidity_2m,precipitation,rain,weather_code",
         "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum",
         "forecast_days": 3,
-        "timezone": "auto"
+        "timezone": "auto",
     }
     url = "https://api.open-meteo.com/v1/forecast?" + urlencode(params)
     req = Request(url, headers={"User-Agent": "CropWise-AI/2.0"})
@@ -127,25 +180,22 @@ def get_five_year_weather(lat, lon):
         "start_date": f"{start_year}-01-01",
         "end_date": f"{end_year}-12-31",
         "daily": "temperature_2m_mean,precipitation_sum",
-        "timezone": "auto"
+        "timezone": "auto",
     }
     url = "https://archive-api.open-meteo.com/v1/archive?" + urlencode(params)
     req = Request(url, headers={"User-Agent": "CropWise-AI/2.0"})
     with urlopen(req, timeout=20) as response:
         data = json.loads(response.read().decode("utf-8"))
-
     df = pd.DataFrame({
         "date": pd.to_datetime(data["daily"]["time"]),
         "temperature": data["daily"]["temperature_2m_mean"],
         "rainfall": data["daily"]["precipitation_sum"],
     })
     df["year"] = df["date"].dt.year
-
-    annual = df.groupby("year", as_index=False).agg(
+    return df.groupby("year", as_index=False).agg(
         Avg_Temperature_C=("temperature", "mean"),
-        Rainfall_mm=("rainfall", "sum")
+        Rainfall_mm=("rainfall", "sum"),
     )
-    return annual
 
 def weather_description(code):
     codes = {
@@ -153,7 +203,7 @@ def weather_description(code):
         45: "Fog", 48: "Rime fog", 51: "Light drizzle", 53: "Moderate drizzle",
         55: "Dense drizzle", 61: "Slight rain", 63: "Moderate rain",
         65: "Heavy rain", 80: "Rain showers", 81: "Moderate rain showers",
-        82: "Violent rain showers", 95: "Thunderstorm"
+        82: "Violent rain showers", 95: "Thunderstorm",
     }
     return codes.get(code, "Weather condition available")
 
@@ -162,63 +212,56 @@ def weather_description(code):
 # -----------------------------
 st.markdown("""
 <div class="hero">
+    <div class="badge">🇵🇰 Smart Agriculture • AI Research Prototype</div>
     <h1>🌾 CropWise AI</h1>
-    <p>Predictive AI for Optimal Crop Selection — Pakistan</p>
+    <p>Predictive AI for Optimal Crop Selection across Pakistan</p>
 </div>
 """, unsafe_allow_html=True)
 
 st.write(
-    "An AI-based agricultural decision-support prototype that combines "
-    "crop recommendation with live and historical weather context."
+    "A data-driven agricultural decision-support prototype combining "
+    "machine learning with live and historical weather context."
 )
 
 # -----------------------------
-# Location
+# Sidebar
 # -----------------------------
-st.sidebar.header("📍 Pakistan Location")
-
-preset = st.sidebar.selectbox(
-    "Choose a location",
-    list(PAKISTAN.keys()),
-    index=0
-)
-
-custom = st.sidebar.text_input(
-    "Or search any Pakistan city/district",
-    placeholder="e.g. Tando Allahyar"
-)
+st.sidebar.markdown("## 📍 Location")
+preset = st.sidebar.selectbox("Select a Pakistan location", list(PAKISTAN.keys()), index=0)
+custom = st.sidebar.text_input("Search another Pakistan city/district", placeholder="e.g. Tando Allahyar")
 
 if custom.strip():
     geo = geocode_pakistan(custom.strip())
     if geo:
-        location_name = f'{geo["name"]}, {geo["admin1"]}'.strip(", ")
-        lat, lon = geo["latitude"], geo["longitude"]
-        st.sidebar.success(f"Location found: {location_name}")
+        city, province, lat, lon = geo
+        location_name = f"{city}, {province}".strip(", ")
+        st.sidebar.success(f"Found: {location_name}")
     else:
         location_name = preset
         lat, lon = PAKISTAN[preset]
-        st.sidebar.warning("Pakistan location not found; using selected location.")
+        st.sidebar.warning("Location not found. Using selected location.")
 else:
     location_name = preset
     lat, lon = PAKISTAN[preset]
 
-st.sidebar.caption(
-    "The AI model remains the same 7-feature Random Forest model. "
-    "Location is used to add weather context; it does not imply field validation."
-)
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🔬 Current AI Model")
+st.sidebar.caption("Random Forest • 7 agricultural features")
+st.sidebar.caption("Dataset: 2,200 records • 22 crop classes")
+st.sidebar.caption("Test accuracy: 99.55%")
 
 # -----------------------------
-# Dashboard metrics
+# KPI strip
 # -----------------------------
-m1, m2, m3, m4 = st.columns(4)
-with m1:
-    st.metric("AI Model", "Random Forest")
-with m2:
-    st.metric("Crop Classes", "22")
-with m3:
-    st.metric("Training Records", "2,200")
-with m4:
-    st.metric("Test Accuracy", "99.55%")
+a, b, c, d = st.columns(4)
+with a:
+    st.metric("🤖 Model", "Random Forest")
+with b:
+    st.metric("🌾 Crop Classes", "22")
+with c:
+    st.metric("📚 Records", "2,200")
+with d:
+    st.metric("🎯 Test Accuracy", "99.55%")
 
 st.divider()
 
@@ -226,57 +269,53 @@ st.divider()
 # Weather
 # -----------------------------
 st.header(f"🌦️ Live Weather — {location_name}")
-
 try:
     weather = get_weather(lat, lon)
     current = weather["current"]
 
     w1, w2, w3, w4 = st.columns(4)
     with w1:
-        st.metric("Temperature", f'{current["temperature_2m"]:.1f} °C')
+        st.metric("🌡️ Temperature", f'{current["temperature_2m"]:.1f} °C')
     with w2:
-        st.metric("Humidity", f'{current["relative_humidity_2m"]:.0f} %')
+        st.metric("💧 Humidity", f'{current["relative_humidity_2m"]:.0f}%')
     with w3:
-        st.metric("Rain", f'{current["rain"]:.1f} mm')
+        st.metric("🌧️ Rain", f'{current["rain"]:.1f} mm')
     with w4:
-        st.metric("Precipitation", f'{current["precipitation"]:.1f} mm')
+        st.metric("☔ Precipitation", f'{current["precipitation"]:.1f} mm')
 
     st.caption(
-        f'Condition: {weather_description(current["weather_code"])} | '
-        f'Coordinates: {lat:.4f}, {lon:.4f} | '
-        f'Weather source: Open-Meteo | Updated: {current["time"]}'
+        f'Condition: {weather_description(current["weather_code"])} • '
+        f'Weather source: Open-Meteo • Updated: {current["time"]}'
     )
 
-    with st.expander("📅 3-Day Weather Outlook"):
+    with st.expander("📅 View 3-Day Weather Outlook"):
         daily = weather["daily"]
         forecast = pd.DataFrame({
             "Date": daily["time"],
             "Min Temp (°C)": daily["temperature_2m_min"],
             "Max Temp (°C)": daily["temperature_2m_max"],
-            "Precipitation (mm)": daily["precipitation_sum"]
+            "Precipitation (mm)": daily["precipitation_sum"],
         })
         st.dataframe(forecast, use_container_width=True, hide_index=True)
-
 except Exception:
     st.warning("Live weather is temporarily unavailable. Manual inputs remain available.")
 
 # -----------------------------
-# Historical climate context
+# Five-year climate
 # -----------------------------
 st.header("📈 Five-Year Climate Context")
-
 try:
     hist = get_five_year_weather(lat, lon)
-    c1, c2 = st.columns(2)
-    with c1:
-        st.subheader("Average Temperature")
+    left, right = st.columns(2)
+    with left:
+        st.markdown("**Average Temperature by Year**")
         st.line_chart(hist.set_index("year")["Avg_Temperature_C"])
-    with c2:
-        st.subheader("Annual Rainfall")
+    with right:
+        st.markdown("**Annual Rainfall by Year**")
         st.bar_chart(hist.set_index("year")["Rainfall_mm"])
     st.caption(
-        "This is historical weather/reanalysis context, not farmer field records. "
-        "Open-Meteo provides historical data from global reanalysis datasets."
+        "Historical climate context is based on weather/reanalysis data, "
+        "not farmer-level field records."
     )
 except Exception:
     st.info("Historical weather is temporarily unavailable.")
@@ -284,72 +323,38 @@ except Exception:
 st.divider()
 
 # -----------------------------
-# Agriculture inputs
+# Agricultural inputs
 # -----------------------------
-st.header("🌱 Agricultural Conditions")
+st.header("🌱 Soil & Agricultural Conditions")
+st.markdown(
+    '<div class="section-note">Enter soil/lab values when available. '
+    'These seven fields match the current trained model.</div>',
+    unsafe_allow_html=True,
+)
 
-col1, col2 = st.columns(2)
-
-with col1:
+c1, c2 = st.columns(2)
+with c1:
     nitrogen = st.number_input("Nitrogen (N)", 0.0, 200.0, 50.0)
     phosphorus = st.number_input("Phosphorus (P)", 0.0, 200.0, 50.0)
     potassium = st.number_input("Potassium (K)", 0.0, 250.0, 50.0)
     temperature = st.number_input("Temperature (°C)", 0.0, 50.0, 25.0)
-
-with col2:
+with c2:
     humidity = st.number_input("Humidity (%)", 0.0, 100.0, 70.0)
     ph = st.number_input("Soil pH", 0.0, 14.0, 6.5)
     rainfall = st.number_input("Rainfall (mm)", 0.0, 500.0, 100.0)
 
-st.caption(
-    "Prediction inputs are kept compatible with the trained dataset: "
-    "N, P, K, temperature, humidity, pH and rainfall."
-)
-
-# -----------------------------
-# Soil integration
-# -----------------------------
-st.header("🌱 Soil Data Integration")
-
-st.info(
-    "SoilGrids is used as the planned global soil-data source for future "
-    "location-based soil retrieval. The current prediction keeps soil inputs "
-    "manual because the SoilGrids REST service is beta/subject to availability."
-)
-
-st.link_button("🌍 Open SoilGrids", "https://soilgrids.org/")
-st.caption(
-    "Source: ISRIC SoilGrids. SoilGrids provides global digital soil maps "
-    "including properties such as pH and total nitrogen."
-)
-
-# -----------------------------
-# Pakistan agriculture data
-# -----------------------------
-st.header("🇵🇰 Pakistan Agriculture Data")
-
-st.write(
-    "For future national-level analysis, CropWise AI can incorporate FAOSTAT "
-    "crop production, harvested area and yield statistics. These official "
-    "statistics provide national agricultural context but are not farmer-level records."
-)
-
-a1, a2 = st.columns(2)
-with a1:
-    st.link_button("📊 FAOSTAT Agriculture Data", "https://www.fao.org/faostat/en/")
-with a2:
-    st.link_button(
-        "🌾 Crop Production Dataset",
-        "https://data.fao.org/catalog/dataset/crop-production-yield-harvested-area-and-processed-global-national-annual-faostat"
-    )
+# Optional one-click sample
+if st.button("✨ Use a Sample Condition Set"):
+    st.info("Sample values are for demonstration only. Enter measured/local values for real analysis.")
 
 st.divider()
 
 # -----------------------------
 # Prediction
 # -----------------------------
-if st.button("🔍 Predict Best Crop", use_container_width=True, type="primary"):
+st.header("🤖 AI Crop Recommendation")
 
+if st.button("🔍 Predict Best Crop", use_container_width=True, type="primary"):
     input_data = pd.DataFrame([{
         "N": nitrogen,
         "P": phosphorus,
@@ -357,7 +362,7 @@ if st.button("🔍 Predict Best Crop", use_container_width=True, type="primary")
         "temperature": temperature,
         "humidity": humidity,
         "ph": ph,
-        "rainfall": rainfall
+        "rainfall": rainfall,
     }])
 
     prediction = model.predict(input_data)[0]
@@ -365,63 +370,90 @@ if st.button("🔍 Predict Best Crop", use_container_width=True, type="primary")
 
     results = pd.DataFrame({
         "Crop": model.classes_,
-        "Prediction Score": probabilities
+        "Prediction Score": probabilities,
     }).sort_values("Prediction Score", ascending=False).head(3)
 
     st.success(f"🌾 Recommended Crop: **{prediction.title()}**")
+    st.subheader("🏆 Top 3 Recommendations")
 
-    st.header("🏆 Top 3 Crop Recommendations")
-
-    result_cols = st.columns(3)
+    cards = st.columns(3)
     medals = ["🥇", "🥈", "🥉"]
-
     for i, (_, row) in enumerate(results.reset_index(drop=True).iterrows()):
-        with result_cols[i]:
-            st.metric(
-                f"{medals[i]} {row['Crop'].title()}",
-                f"{row['Prediction Score'] * 100:.1f}%"
+        with cards[i]:
+            st.markdown(
+                f"""
+                <div class="result-card">
+                    <h3>{medals[i]} {row['Crop'].title()}</h3>
+                    <div class="score">{row['Prediction Score']*100:.1f}%</div>
+                    <div class="section-note">Prediction Score</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
             st.progress(float(row["Prediction Score"]))
 
     st.caption(
-        "Prediction score = Random Forest probability estimate for the entered "
-        "conditions. It is not a real-world probability of crop success."
+        "Prediction Score is the Random Forest probability estimate for the "
+        "entered conditions. It is not a real-world probability of crop success."
     )
 
-    st.header("🤖 AI Analysis")
+    st.subheader("🧠 AI Analysis")
     st.write(
         f"The model selected **{prediction.title()}** as the top recommendation "
-        f"for the entered agricultural conditions."
+        "for the entered agricultural conditions."
     )
     st.write(
-        "The model evaluates nitrogen, phosphorus, potassium, temperature, "
-        "humidity, soil pH and rainfall together."
+        "The current model evaluates Nitrogen, Phosphorus, Potassium, "
+        "temperature, humidity, soil pH and rainfall together."
     )
 
-    st.header("📊 Input Summary")
-    summary = pd.DataFrame({
-        "Parameter": [
-            "Nitrogen", "Phosphorus", "Potassium",
-            "Temperature", "Humidity", "Soil pH", "Rainfall"
-        ],
-        "Value": [
-            nitrogen, phosphorus, potassium,
-            temperature, humidity, ph, rainfall
-        ]
-    })
-    st.dataframe(summary, use_container_width=True, hide_index=True)
+    with st.expander("📋 View Input Summary"):
+        summary = pd.DataFrame({
+            "Parameter": [
+                "Nitrogen", "Phosphorus", "Potassium",
+                "Temperature", "Humidity", "Soil pH", "Rainfall"
+            ],
+            "Value": [
+                nitrogen, phosphorus, potassium,
+                temperature, humidity, ph, rainfall
+            ],
+        })
+        st.dataframe(summary, use_container_width=True, hide_index=True)
 
+# -----------------------------
+# Data sources / roadmap
+# -----------------------------
 st.divider()
+st.header("🗺️ Data & Future Integration")
 
-st.warning(
-    "⚠️ Responsible Use: CropWise AI is a research prototype. "
-    "The current Random Forest model is trained on the selected crop "
-    "recommendation dataset and is not yet validated as a Pakistan-wide "
-    "or Umarkot field model."
+s1, s2, s3 = st.columns(3)
+with s1:
+    st.markdown("### 🌦️ Weather")
+    st.write("Live and historical weather context.")
+    st.link_button("Open Open-Meteo", "https://open-meteo.com/")
+with s2:
+    st.markdown("### 🌱 Soil")
+    st.write("Global soil-data reference for future localized integration.")
+    st.link_button("Open SoilGrids", "https://soilgrids.org/")
+with s3:
+    st.markdown("### 🌾 Agriculture")
+    st.write("National/global crop statistics for future analysis.")
+    st.link_button("Open FAOSTAT", "https://www.fao.org/faostat/en/")
+
+st.info(
+    "Future development: integrate validated Pakistan-wide field soil data, "
+    "farmer historical records, localized crop-yield data and additional AI "
+    "models for location-aware crop suitability and yield prediction."
 )
 
-st.caption(
-    "CropWise AI | Alibaba Cloud AI Hackathon Pakistan 2026 | "
-    "Weather: Open-Meteo | Soil reference: SoilGrids | "
-    "Agricultural statistics reference: FAOSTAT"
+st.warning(
+    "⚠️ Responsible Use: CropWise AI is a research prototype. The current "
+    "Random Forest model is trained on the selected crop recommendation dataset "
+    "and is not yet validated as a Pakistan-wide or Umarkot field model."
+)
+
+st.markdown(
+    '<div class="footer">CropWise AI • Alibaba Cloud AI Hackathon Pakistan 2026 • '
+    'AI for Smart Agriculture</div>',
+    unsafe_allow_html=True,
 )
