@@ -117,6 +117,8 @@ UMARKOT_LAT = 25.3633
 UMARKOT_LON = 69.7360
 LOCATION_NAME = "Umarkot, Sindh, Pakistan"
 
+SCENARIO_DATA = {'🌾 Rice': [90, 42, 43, 20.87974371, 82.00274423, 6.502985292, 202.9355362], '🌽 Maize': [71, 54, 16, 22.61359953, 63.69070564, 5.749914421, 87.75953857], '🫘 Chickpea': [40, 72, 77, 17.02498456, 16.98861173, 7.485996067, 88.55123143], '🌿 Cotton': [133, 47, 24, 24.40228894, 79.19732001, 7.231324765, 90.8022356], '🍌 Banana': [91, 94, 46, 29.36792366, 76.24900101, 6.149934034, 92.82840911], '🥭 Mango': [2, 40, 27, 29.73770045, 47.54885174, 5.954626604, 90.09586854], '🍎 Apple': [24, 128, 196, 22.75088787, 90.69489172, 5.521466996, 110.4317855]}
+
 @st.cache_data(ttl=1800)
 def get_weather(lat, lon):
     params = {
@@ -303,6 +305,35 @@ if st.button("✨ Use a Sample Condition Set"):
 
 st.divider()
 
+
+# -----------------------------
+# Demo scenarios
+# -----------------------------
+st.header("🎯 Quick Demo Scenarios")
+st.markdown(
+    '<div class="section-note">Use real sample conditions from the project dataset '
+    'to demonstrate that the model responds to different agricultural profiles. '
+    'These are demonstration samples, not farmer records.</div>',
+    unsafe_allow_html=True,
+)
+
+SCENARIOS = SCENARIO_DATA
+scenario = st.selectbox(
+    "Choose a demonstration profile",
+    ["Manual Input"] + list(SCENARIOS.keys()),
+    index=0,
+)
+
+if scenario != "Manual Input":
+    vals = SCENARIOS[scenario]
+    nitrogen, phosphorus, potassium, temperature, humidity, ph, rainfall = vals
+    st.success(
+        f"Loaded {scenario} sample conditions. "
+        "Click **Predict Best Crop** below to run the AI model."
+    )
+
+st.divider()
+
 # -----------------------------
 # Prediction
 # -----------------------------
@@ -391,7 +422,7 @@ with s2:
     st.link_button("Open SoilGrids", "https://soilgrids.org/")
 with s3:
     st.markdown("### 🌾 Agriculture")
-    st.write("National/global crop statistics for future analysis.")
+    st.write("Umarkot and Sindh agricultural statistics for future localized analysis.")
     st.link_button("Open FAOSTAT", "https://www.fao.org/faostat/en/")
 
 st.info(
