@@ -111,49 +111,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Pakistan locations
+# Research Location: Umarkot
 # -----------------------------
-PAKISTAN = {
-    "Umarkot, Sindh": (25.3633, 69.7360),
-    "Hyderabad, Sindh": (25.3960, 68.3578),
-    "Karachi, Sindh": (24.8607, 67.0011),
-    "Sukkur, Sindh": (27.7244, 68.8228),
-    "Larkana, Sindh": (27.5600, 68.2264),
-    "Nawabshah, Sindh": (26.2442, 68.4100),
-    "Mirpur Khas, Sindh": (25.5276, 69.0111),
-    "Thatta, Sindh": (24.7461, 67.9236),
-    "Multan, Punjab": (30.1575, 71.5249),
-    "Lahore, Punjab": (31.5204, 74.3587),
-    "Faisalabad, Punjab": (31.4504, 73.1350),
-    "Bahawalpur, Punjab": (29.3956, 71.6836),
-    "Sahiwal, Punjab": (30.6682, 73.1114),
-    "Rahim Yar Khan, Punjab": (28.4212, 70.2989),
-    "Dera Ghazi Khan, Punjab": (30.0561, 70.6348),
-    "Gujranwala, Punjab": (32.1877, 74.1945),
-    "Peshawar, Khyber Pakhtunkhwa": (34.0151, 71.5249),
-    "Dera Ismail Khan, Khyber Pakhtunkhwa": (31.8311, 70.9017),
-    "Mardan, Khyber Pakhtunkhwa": (34.1980, 72.0400),
-    "Swat, Khyber Pakhtunkhwa": (35.2227, 72.4258),
-    "Quetta, Balochistan": (30.1798, 66.9750),
-    "Sibi, Balochistan": (29.5448, 67.8773),
-    "Turbat, Balochistan": (26.0023, 63.0505),
-    "Gwadar, Balochistan": (25.1264, 62.3225),
-    "Islamabad, ICT": (33.6844, 73.0479),
-    "Muzaffarabad, AJK": (34.3700, 73.4711),
-    "Gilgit, Gilgit-Baltistan": (35.9208, 74.3089),
-}
-
-@st.cache_data(ttl=3600)
-def geocode_pakistan(place):
-    params = {"name": place, "count": 5, "language": "en", "format": "json"}
-    url = "https://geocoding-api.open-meteo.com/v1/search?" + urlencode(params)
-    req = Request(url, headers={"User-Agent": "CropWise-AI/2.0"})
-    with urlopen(req, timeout=10) as response:
-        data = json.loads(response.read().decode("utf-8"))
-    for r in data.get("results", []):
-        if r.get("country_code") == "PK":
-            return r.get("name", place), r.get("admin1", ""), r["latitude"], r["longitude"]
-    return None
+UMARKOT_LAT = 25.3633
+UMARKOT_LON = 69.7360
+LOCATION_NAME = "Umarkot, Sindh, Pakistan"
 
 @st.cache_data(ttl=1800)
 def get_weather(lat, lon):
@@ -214,7 +176,7 @@ st.markdown("""
 <div class="hero">
     <div class="badge">🇵🇰 Smart Agriculture • AI Research Prototype</div>
     <h1>🌾 CropWise AI</h1>
-    <p>Predictive AI for Optimal Crop Selection across Pakistan</p>
+    <p>Predictive AI for Optimal Crop Selection — Umarkot, Sindh</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -226,29 +188,21 @@ st.write(
 # -----------------------------
 # Sidebar
 # -----------------------------
-st.sidebar.markdown("## 📍 Location")
-preset = st.sidebar.selectbox("Select a Pakistan location", list(PAKISTAN.keys()), index=0)
-custom = st.sidebar.text_input("Search another Pakistan city/district", placeholder="e.g. Tando Allahyar")
-
-if custom.strip():
-    geo = geocode_pakistan(custom.strip())
-    if geo:
-        city, province, lat, lon = geo
-        location_name = f"{city}, {province}".strip(", ")
-        st.sidebar.success(f"Found: {location_name}")
-    else:
-        location_name = preset
-        lat, lon = PAKISTAN[preset]
-        st.sidebar.warning("Location not found. Using selected location.")
-else:
-    location_name = preset
-    lat, lon = PAKISTAN[preset]
+st.sidebar.markdown("## 📍 Research Location")
+st.sidebar.success("Umarkot, Sindh, Pakistan")
+st.sidebar.caption(
+    "Current research prototype is focused on Umarkot. "
+    "Pakistan-wide expansion is planned after local validation."
+)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🔬 Current AI Model")
 st.sidebar.caption("Random Forest • 7 agricultural features")
 st.sidebar.caption("Dataset: 2,200 records • 22 crop classes")
 st.sidebar.caption("Test accuracy: 99.55%")
+
+location_name = LOCATION_NAME
+lat, lon = UMARKOT_LAT, UMARKOT_LON
 
 # -----------------------------
 # KPI strip
@@ -449,7 +403,7 @@ st.info(
 st.warning(
     "⚠️ Responsible Use: CropWise AI is a research prototype. The current "
     "Random Forest model is trained on the selected crop recommendation dataset "
-    "and is not yet validated as a Pakistan-wide or Umarkot field model."
+    "and is not yet validated as a Umarkot field model."
 )
 
 st.markdown(
